@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "mantle_fabric",
+  "version": "${version}",
+
+  "name": "Mantle Fabric",
+  "description": "Shared code for Slime Knights mods and others.Fabric Version is warped by Bilicraft",
+  "authors": [
+    "Me!"
+  ],
+  "contact": {
+    "homepage": "https://fabricmc.net/",
+    "sources": "https://github.com/FabricMC/fbric-example-mod"
+  },
+
+  "license": "CC0-1.0",
+  "icon": "assets/mantle_fabric/Mantle.png",
+
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.bilicraft.mantle_fabric.MantleFabric"
+    ],
+    "client": [
+      "com.bilicraft.mantle_fabric.MantleFabricClient"
+    ],
+    "server": [
+      "com.bilicraft.mantle_fabric.MantleFabricServer"
+    ]
+  },
+  "mixins": [
+    "mantle_fabric.mixins.json"
+  ],
+
+  "depends": {
+    "fabricloader": ">=0.11.3",
+    "fabric": "*",
+    "minecraft": "1.17.x",
+    "java": ">=16"
+  },
+  "suggests": {
+    "another-mod": "*"
+  }
+}
