@@ -1,251 +1,87 @@
-/*
- * Mantle
- * Master build file
- * Based on TConstruct's master build file
- * Authors: Sunstrike, ProgWML6
- * Help from AbrarSyed
-*/
-
-buildscript {
-    repositories {
-        mavenLocal()
-        maven { url = 'https://maven.minecraftforge.net/' }
-        maven { url = 'https://libraries.minecraft.net/' }
-        jcenter()
-        mavenCentral()
-        maven {
-            name = "sonatype"
-            url = "https://oss.sonatype.org/content/repositories/snapshots/"
-        }
-        maven {
-            url "https://plugins.gradle.org/m2/"
-        }
-    }
-    dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '3.+', changing: true
-        classpath 'io.freefair.gradle:lombok-plugin:4.1.6'
-    }
+plugins {
+	id 'fabric-loom' version '0.9-SNAPSHOT'
+	id 'maven-publish'
 }
 
-apply plugin: 'net.minecraftforge.gradle'
-apply plugin: 'maven'
-apply plugin: 'eclipse'
-apply plugin: 'maven-publish'
-apply plugin: 'io.freefair.lombok'
+sourceCompatibility = JavaVersion.VERSION_16
+targetCompatibility = JavaVersion.VERSION_16
+
+archivesBaseName = project.archives_base_name
+version = project.mod_version
+group = project.maven_group
 
 repositories {
-    mavenLocal()
-    maven { // Vanilla
-        name 'Vanilla'
-        url 'https://libraries.minecraft.net/'
-    }
-    maven { // Forge
-        name 'ForgeFS'
-        url 'https://maven.minecraftforge.net/'
-    }
-    maven {
-        name 'DVS1 Maven FS'
-        url 'https://dvs1.progwml6.com/files/maven'
-    }
-    maven {
-        // for Yarn2MCP
-        name "yarn2mcp"
-        url "https://maven.tterrag.com/"
-    }
+	// Add repositories to retrieve artifacts from in here.
+	// You should only use this when depending on other mods because
+	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
+	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
+	// for more information about repositories.
 }
 
-group = 'slimeknights.mantle'
-
-// sets version to the slimeKnights version format
-task buildInfo {
-    try {
-        def cmd = "git rev-parse --short HEAD"
-        def proc = cmd.execute()
-        proc.waitFor()
-        if (proc.exitValue() == 0) {
-            ext.revision = proc.text.trim()
-        } else {
-            ext.revision = "GITBORK"
-        }
-    } catch (all) {
-        ext.revision = "gitgud"
-    }
-
-    if (System.getenv().BUILD_NUMBER != null) {
-        ext.buildNum = "${System.getenv().BUILD_NUMBER}"
-    } else {
-        ext.buildNum = "DEV.${project.buildInfo.revision}"
-    }
-}
-ext.artifact_version = 'NFG'
-if (System.getenv().ARTIFACT_VERSION == null) {
-    artifact_version = "${mod_version}.${project.buildInfo.buildNum}"
-}
-if (System.getenv().ARTIFACT_VERSION != null) {
-    artifact_version = "${system.getenv().ARTIFACT_VERSION}"
-}
-
-version = "${minecraft_version}-${artifact_version}"
-
-sourceSets {
-    main {
-        resources {
-            srcDirs "src/generated/resources"
-            //But exclude the cache of the generated data from what gets built
-            exclude '.cache'
-        }
-    }
-}
-
-minecraft {
-    mappings channel: 'snapshot', version: mappings_version
-
-    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
-
-    runs {
-        client {
-            workingDirectory project.file('run')
-
-            // Recommended logging data for a userdev environment
-            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP,CORE'
-
-            // Recommended logging level for the console
-            property 'forge.logging.console.level', 'debug'
-
-            mods {
-                mantle {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        server {
-            workingDirectory project.file('run')
-
-            // Recommended logging data for a userdev environment
-            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP,CORE'
-
-            // Recommended logging level for the console
-            property 'forge.logging.console.level', 'debug'
-
-            mods {
-                mantle {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        data {
-            workingDirectory project.file('run')
-
-            // Recommended logging data for a userdev environment
-            property 'forge.logging.markers', 'SCAN,REGISTRIES,REGISTRYDUMP,CORE'
-
-            // Recommended logging level for the console
-            property 'forge.logging.console.level', 'debug'
-
-            args '--mod', 'mantle', '--all', '--output', file('src/generated/resources/')
-
-            mods {
-                mantle {
-                    source sourceSets.main
-                }
-            }
-        }
-    }
-}
-
-configurations {
-    deployerJars
-}
-               
 dependencies {
-    minecraft 'net.minecraftforge:forge:' + minecraft_version + '-' + forge_version
+	// To change the versions see the gradle.properties file
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-    // compile against the JEI API but do not include it at runtime
-    compileOnly fg.deobf("mezz.jei:jei-${jei_version}:api")
-    // at runtime, use the full JEI jar
-    runtimeOnly fg.deobf("mezz.jei:jei-${jei_version}")
-}
+	// Fabric API. This is technically optional, but you probably want it anyway.
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-def modsTomlSpec = copySpec{
-    from(sourceSets.main.resources) {
-        include 'META-INF/mods.toml'
-        expand 'version': artifact_version,
-                'loader_range': loader_range,
-                'minecraft_range': minecraft_range,
-                'forge_range': forge_range
-    }
-}
-
-// need to copy into each build directory, unfortunately does not seem easy to do this automatically
-def buildPaths = [
-        "$rootDir/out/production/resources", // IDEA
-        "$rootDir/bin", // Eclipse
-]
-
-// task to add mods.toml to all relevant folders
-task replaceResources {
-    // copy for gradle
-    copy {
-        outputs.upToDateWhen { false }
-        with modsTomlSpec
-        into processResources.destinationDir
-    }
-    // copy for IDEs
-    buildPaths.each { path ->
-        if (new File(path).exists()) {
-            copy {
-                outputs.upToDateWhen { false }
-                with modsTomlSpec
-                into path
-            }
-        }
-    }
+	// PSA: Some older mods, compiled on Loom 0.2.1, might have outdated Maven POMs.
+	// You may need to force-disable transitiveness on them.
 }
 
 processResources {
-    exclude 'META-INF/mods.toml'
-    finalizedBy replaceResources
+	inputs.property "version", project.version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": project.version
+	}
 }
 
+tasks.withType(JavaCompile).configureEach {
+	// ensure that the encoding is set to UTF-8, no matter what the system default is
+	// this fixes some edge cases with special characters not displaying correctly
+	// see http://yodaconditions.net/blog/fix-for-java-file-encoding-problems-with-gradle.html
+	// If Javadoc is generated, this must be specified in that task too.
+	it.options.encoding = "UTF-8"
+
+	// Minecraft 1.17 (21w19a) upwards uses Java 16.
+	it.options.release = 16
+}
+
+java {
+	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+	// if it is present.
+	// If you remove this line, sources will not be generated.
+	withSourcesJar()
+}
 
 jar {
-    manifest {
-        attributes([
-                "Specification-Title"     : "Mantle",
-                "Specification-Vendor"    : "Slime Knights",
-                "Specification-Version"   : "1", // We are version 1 of ourselves
-                "Implementation-Title"    : project.name,
-                "Implementation-Version"  : "${version}",
-                "Implementation-Vendor"   : "Slime Knights",
-                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
-        ])
-    }
+	from("LICENSE") {
+		rename { "${it}_${project.archivesBaseName}"}
+	}
 }
 
-jar.finalizedBy('reobfJar')
-
-task sourcesJar(type: Jar) {
-    from sourceSets.main.allJava
-    classifier = 'sources'
-}
-
-artifacts {
-    archives sourcesJar
-}
-
+// configure the maven publication
 publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            artifact jar
-            artifact sourcesJar
-        }
-    }
+	publications {
+		mavenJava(MavenPublication) {
+			// add all the jars that should be included when publishing to maven
+			artifact(remapJar) {
+				builtBy remapJar
+			}
+			artifact(sourcesJar) {
+				builtBy remapSourcesJar
+			}
+		}
+	}
 
-    repositories {
-        if (project.hasProperty('DEPLOY_DIR')) {
-            maven { url DEPLOY_DIR }
-        }
-    }
+	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+	repositories {
+		// Add repositories to publish to here.
+		// Notice: This block does NOT have the same function as the block in the top level.
+		// The repositories here will be used for publishing your artifact, not for
+		// retrieving dependencies.
+	}
 }
